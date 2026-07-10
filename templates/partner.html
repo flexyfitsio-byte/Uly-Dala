@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Для партнёров — Uly Dala{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="shell">
+    <span class="eyebrow">B2B-кабинет</span>
+    <h1>Подключите свой бизнес к <span>Uly Dala</span></h1>
+    <p class="lead">
+      Отели, музеи, рестораны и туркомпании могут добавить свои объекты в базу
+      проверенных мест — их увидит ИИ-гид и тысячи путешественников по Казахстану.
+    </p>
+  </div>
+</section>
+
+<section class="section shell" style="max-width: 640px;">
+  <div class="ornate-frame">
+    <h3 style="margin-bottom: 20px;">Заявка на добавление места</h3>
+    <div id="partnerForm">
+      <div class="form-field">
+        <label>Название объекта</label>
+        <input type="text" id="pName" placeholder="Например: Гостевой дом «Кокше»">
+      </div>
+      <div class="form-field">
+        <label>Категория</label>
+        <select id="pCategory">
+          <option value="nature">Природа</option>
+          <option value="history">История</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Регион</label>
+        <input type="text" id="pRegion" placeholder="Акмолинская область">
+      </div>
+      <div class="form-field">
+        <label>Описание</label>
+        <textarea id="pDescription" rows="3" placeholder="Кратко расскажите о месте"></textarea>
+      </div>
+      <button class="btn btn-gold" onclick="submitPlace()">Отправить на модерацию</button>
+      <div id="partnerStatus" class="text-muted mt-24"></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function submitPlace() {
+  const payload = {
+    name: document.getElementById('pName').value.trim(),
+    category: document.getElementById('pCategory').value,
+    region: document.getElementById('pRegion').value.trim(),
+    description: document.getElementById('pDescription').value.trim(),
+  };
+
+  const statusBox = document.getElementById('partnerStatus');
+  const res = await fetch('/api/partner/submit-place', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  statusBox.textContent = data.message || data.error;
+  statusBox.style.color = res.ok ? 'var(--gold-soft)' : 'var(--danger)';
+}
+</script>
+{% endblock %}

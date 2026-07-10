@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Uly Dala — Цифровой гид по Казахстану{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<header class="topbar">
+  <div class="shell topbar-inner">
+    <a href="{{ url_for('main.index') }}" class="brand">
+      <svg class="brand-mark" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="#C9A15A" stroke-width="2" stroke-linecap="round">
+          <path d="M14 16 L24 26 M14 26 L24 16"/>
+          <path d="M50 16 L40 26 M50 26 L40 16"/>
+          <path d="M22 28 Q32 14 42 28 L42 34 Q32 30 22 34 Z" fill="#C9A15A" stroke="none"/>
+          <circle cx="32" cy="12" r="2.4" fill="#C9A15A" stroke="none"/>
+          <path d="M28 36 L26 46 M36 36 L38 46 M32 36 L32 48"/>
+        </g>
+      </svg>
+      Uly Dala
+    </a>
+    <nav class="nav-links">
+      <a href="{{ url_for('main.index') }}" class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}">Карта</a>
+      <a href="{{ url_for('main.chat_page') }}" class="nav-link {% if request.endpoint == 'main.chat_page' %}active{% endif %}">ИИ-гид</a>
+      <a href="{{ url_for('main.partner_page') }}" class="nav-link {% if request.endpoint == 'main.partner_page' %}active{% endif %}">Партнёрам</a>
+      <a href="#" id="profileLink" class="nav-link icon-link">Профиль <span id="xpBadge"></span></a>
+    </nav>
+  </div>
+</header>
+
+<main>
+{% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  <div class="shell flex" style="justify-content:space-between; width:100%;">
+    <span>© 2026 Uly Dala — цифровой гид по Казахстану</span>
+    <span>ulydalaio@gmail.com · @ULY_DALA.IO</span>
+  </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

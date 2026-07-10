@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Uly Dala — Открой Казахстан{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="shell hero-inner">
+    <div>
+      <span class="eyebrow">Первый цифровой гид по Казахстану</span>
+      <h1>Путешествуй по <span>Великой степи</span> осмысленно</h1>
+      <p class="lead">
+        Uly Dala подбирает маршрут под твой бюджет, рассказывает историю каждого места
+        и награждает опытом за каждое открытие — от Бурабая до Байконура.
+      </p>
+      <div class="hero-actions">
+        <a href="{{ url_for('main.chat_page') }}" class="btn btn-gold">Спросить ИИ-гида</a>
+        <a href="#places" class="btn btn-outline">Смотреть карту</a>
+      </div>
+
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Например: озеро рядом с Астаной...">
+        <button class="btn btn-gold" onclick="location.href='{{ url_for('main.chat_page') }}'">Найти с ИИ</button>
+      </div>
+      <div class="chip-row" id="categoryChips">
+        <div class="chip active" data-category="">Все места</div>
+        <div class="chip" data-category="nature">Природа</div>
+        <div class="chip" data-category="history">История</div>
+      </div>
+    </div>
+
+    <div class="hero-art">
+      <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" width="100%">
+        <circle cx="120" cy="120" r="110" fill="none" stroke="#C9A15A" stroke-width="1" opacity="0.35"/>
+        <circle cx="120" cy="120" r="80" fill="none" stroke="#C9A15A" stroke-width="1" opacity="0.25"/>
+        <g stroke="#C9A15A" stroke-width="2.4" fill="none" stroke-linecap="round">
+          <path d="M70 96 L100 126 M70 126 L100 96"/>
+          <path d="M170 96 L140 126 M170 126 L140 96"/>
+          <path d="M92 128 Q120 90 148 128 L148 148 Q120 138 92 148 Z" fill="#C9A15A" stroke="none"/>
+          <circle cx="120" cy="78" r="5" fill="#C9A15A" stroke="none"/>
+          <path d="M104 150 L100 172 M136 150 L140 172 M120 150 L120 178"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="section shell" id="places">
+  <div class="section-head">
+    <div>
+      <h2>Места для открытия</h2>
+      <div class="sub">Проверенные локации — данные, на которые опирается ИИ-гид</div>
+    </div>
+    <div class="badge-xp" id="heroXpBadge">— XP</div>
+  </div>
+
+  <div class="place-grid" id="placeGrid">
+    <div class="text-muted">Загружаем места...</div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const categoryEmoji = { nature: "🏔", history: "🏛" };
+
+  async function loadPlaces(category) {
+    const grid = document.getElementById('placeGrid');
+    grid.innerHTML = '<div class="text-muted">Загружаем места...</div>';
+    const url = category ? `/api/places?category=${category}` : '/api/places';
+    const res = await fetch(url);
+    const places = await res.json();
+
+    if (!places.length) {
+      grid.innerHTML = '<div class="text-muted">Мест не найдено.</div>';
+      return;
+    }
+
+    grid.innerHTML = places.map(p => `
+      <div class="place-card" onclick="visitPlace(${p.id})">
+        <div class="place-card-media">${categoryEmoji[p.category] || '📍'}</div>
+        <div class="place-card-body">
+          <div class="place-card-region">${p.region}</div>
+          <h3>${p.name}</h3>
+          <div class="place-card-desc">${p.description}</div>
+          <div class="place-card-footer">
+            <span class="price-tag">${p.avg_cost_per_day.toLocaleString('ru-RU')} ₸/день</span>
+            <span class="tag-pill">${p.tags[0] || ''}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function visitPlace(placeId) {
+    const res = await fetch(`/api/visit/${placeId}`, { method: 'POST' });
+    const user = await res.json();
+    updateXpBadges(user);
+  }
+
+  function updateXpBadges(user) {
+    const text = `${user.xp} XP · ${user.level}`;
+    document.getElementById('heroXpBadge').textContent = text;
+    document.getElementById('xpBadge').textContent = `(${user.xp})`;
+  }
+
+  document.getElementById('categoryChips').addEventListener('click', (e) => {
+    if (!e.target.classList.contains('chip')) return;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    e.target.classList.add('active');
+    loadPlaces(e.target.dataset.category);
+  });
+
+  async function loadProfile() {
+    const res = await fetch('/api/profile');
+    const user = await res.json();
+    updateXpBadges(user);
+  }
+
+  loadPlaces('');
+  loadProfile();
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Регистрация' if mode == 'register' else 'Вход' }} — Uly Dala{% endblock %}
+
+{% block content %}
+<section class="section shell" style="max-width: 440px; margin: 0 auto;">
+  <div class="ornate-frame">
+    <h2 class="center" style="margin-bottom: 24px;">{{ 'Регистрация' if mode == 'register' else 'Вход' }}</h2>
+
+    <form method="POST" action="{{ url_for('auth.register') if mode == 'register' else url_for('auth.login') }}">
+      <div class="form-field">
+        <label>Email</label>
+        <input type="email" name="email" required>
+      </div>
+      <div class="form-field">
+        <label>Пароль</label>
+        <input type="password" name="password" required minlength="6">
+      </div>
+      <button class="btn btn-gold" type="submit" style="width:100%;">
+        {{ 'Продолжить' if mode == 'register' else 'Войти' }}
+      </button>
+    </form>
+
+    <div class="center text-muted mt-24" style="font-size: 0.85rem;">
+      {% if mode == 'register' %}
+        Уже есть аккаунт? <a href="{{ url_for('auth.login') }}" style="color: var(--gold-soft);">Войти</a>
+      {% else %}
+        Нет аккаунта? <a href="{{ url_for('auth.register') }}" style="color: var(--gold-soft);">Зарегистрироваться</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
