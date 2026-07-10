@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Профиль — Uly Dala{% endblock %}
+
+{% block content %}
+<section class="section shell" style="max-width: 720px;">
+
+  <div id="loggedOutNotice" class="ornate-frame" style="display:none; margin-bottom: 20px;">
+    <div class="text-muted" style="font-size:0.9rem;">
+      Вы не вошли в аккаунт — прогресс сохраняется только в этом браузере (гостевая сессия).
+      <a href="{{ url_for('auth.login') }}" style="color: var(--gold-soft);">Войти</a> или
+      <a href="{{ url_for('auth.register') }}" style="color: var(--gold-soft);">зарегистрироваться</a>,
+      чтобы не потерять XP и коллекцию мест.
+    </div>
+  </div>
+
+  <div class="ornate-frame">
+    <div class="profile-header">
+      <div class="profile-avatar" id="avatarInitial">?</div>
+      <div style="flex:1; min-width:200px;">
+        <div class="eyebrow" id="profileEmail">Гость</div>
+        <h2 id="profileLevel" style="margin-bottom:2px;">—</h2>
+        <div class="text-muted" style="font-size:0.85rem;" id="profileXpText">— XP</div>
+        <div class="xp-track"><div class="xp-fill" id="xpFill" style="width:0%;"></div></div>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline" id="logoutBtn" style="display:none;">Выйти</a>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-box"><div class="num" id="statVisited">0</div><div class="lbl">Мест посещено</div></div>
+      <div class="stat-box"><div class="num" id="statXp">0</div><div class="lbl">Всего XP</div></div>
+      <div class="stat-box"><div class="num" id="statRegions">0</div><div class="lbl">Областей открыто</div></div>
+    </div>
+  </div>
+
+  <div class="ornate-frame" style="margin-top:20px;">
+    <h3 style="margin-bottom:14px;">Стать партнёром</h3>
+    <div class="partner-cta" id="partnerCta">
+      <div style="max-width:420px;">
+        <div style="font-weight:600; margin-bottom:4px;">Отель, тур-оператор, музей или гид?</div>
+        <div class="text-muted" style="font-size:0.85rem;">
+          Подайте заявку — мы свяжемся с вами и подключим ваши услуги к платформе Uly Dala.
+        </div>
+      </div>
+      <div>
+        <span class="partner-status-pill" id="partnerStatusPill">—</span>
+        <button class="btn btn-gold" id="partnerBtn" onclick="requestPartner()" style="margin-left:10px;">Подать заявку</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ornate-frame" style="margin-top:20px;">
+    <h3 style="margin-bottom:14px;">Исследование областей</h3>
+    <div id="regionProgress"><div class="text-muted">Пока нет данных.</div></div>
+  </div>
+
+  <div class="ornate-frame" style="margin-top:20px;">
+    <h3 style="margin-bottom:6px;">История посещений</h3>
+    <div class="text-muted" style="font-size:0.85rem; margin-bottom:8px;">Места, которые вы отметили как посещённые</div>
+    <div id="visitHistory"><div class="text-muted">Загрузка...</div></div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function loadProfilePage() {
+  const [profileRes, historyRes, partnerRes] = await Promise.all([
+    fetch('/api/profile'),
+    fetch('/api/profile/history'),
+    fetch('/api/partner/status'),
+  ]);
+  const user = await profileRes.json();
+  const history = await historyRes.json();
+  const partner = await partnerRes.json();
+
+  document.getElementById('loggedOutNotice').style.display = user.logged_in ? 'none' : 'block';
+  document.getElementById('logoutBtn').style.display = user.logged_in ? 'inline-flex' : 'none';
+
+  const label = user.email || 'Гость (без регистрации)';
+  document.getElementById('profileEmail').textContent = label;
+  document.getElementById('avatarInitial').textContent = (user.name || user.email || 'Г').charAt(0).toUpperCase();
+  document.getElementById('profileLevel').textContent = user.level;
+  document.getElementById('profileXpText').textContent = `${user.xp} XP`;
+  document.getElementById('statVisited').textContent = (user.visited_places || []).length;
+  document.getElementById('statXp').textContent = user.xp;
+  document.getElementById('statRegions').textContent = Object.keys(user.regions_progress || {}).length;
+
+  const levels = [0, 300, 800, 1800, 3500];
+  let idx = 0;
+  levels.forEach((t, i) => { if (user.xp >= t) idx = i; });
+  const next = levels[idx + 1];
+  const pct = next ? Math.min(100, Math.round(((user.xp - levels[idx]) / (next - levels[idx])) * 100)) : 100;
+  document.getElementById('xpFill').style.width = pct + '%';
+
+  // Партнёрский статус
+  const pillEl = document.getElementById('partnerStatusPill');
+  const btnEl = document.getElementById('partnerBtn');
+  const statusMap = { none: 'Не подана', pending: 'На рассмотрении', approved: 'Партнёр ✓' };
+  pillEl.textContent = statusMap[partner.partner_status] || 'Не подана';
+  if (partner.partner_status === 'approved') { btnEl.style.display = 'none'; }
+  if (partner.partner_status === 'pending') { btnEl.textContent = 'Заявка отправлена'; btnEl.disabled = true; }
+  if (!partner.logged_in) { btnEl.textContent = 'Войдите, чтобы подать заявку'; }
+
+  // Прогресс по областям
+  const regions = user.regions_progress || {};
+  const regionBox = document.getElementById('regionProgress');
+  const regionEntries = Object.entries(regions);
+  if (!regionEntries.length) {
+    regionBox.innerHTML = '<div class="text-muted">Отметьте первое посещённое место, чтобы увидеть прогресс.</div>';
+  } else {
+    regionBox.innerHTML = regionEntries.map(([region, count]) => `
+      <div class="region-progress">
+        <div class="rp-head"><span>${region}</span><span>${count} ${count === 1 ? 'место' : 'места'}</span></div>
+        <div class="xp-track"><div class="xp-fill" style="width:${Math.min(100, count * 34)}%;"></div></div>
+      </div>
+    `).join('');
+  }
+
+  // История посещений
+  const histBox = document.getElementById('visitHistory');
+  if (!history.length) {
+    histBox.innerHTML = '<div class="text-muted">Вы ещё не отметили ни одного посещённого места — откройте карточку места на карте.</div>';
+  } else {
+    histBox.innerHTML = history.map(h => `
+      <div class="history-item">
+        <div>
+          <div class="h-name">${h.name}</div>
+          <div class="h-region">${h.region}</div>
+        </div>
+        <div class="h-date">${h.visited_at ? new Date(h.visited_at).toLocaleDateString('ru-RU') : ''}</div>
+      </div>
+    `).join('');
+  }
+}
+
+async function requestPartner() {
+  const btn = document.getElementById('partnerBtn');
+  btn.disabled = true;
+  const res = await fetch('/api/partner/become', { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) {
+    alert(data.error || 'Не удалось отправить заявку');
+    btn.disabled = false;
+    return;
+  }
+  document.getElementById('partnerStatusPill').textContent = data.status === 'approved' ? 'Партнёр ✓' : 'На рассмотрении';
+  btn.textContent = 'Заявка отправлена';
+}
+
+loadProfilePage();
+</script>
+{% endblock %}

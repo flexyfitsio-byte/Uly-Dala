@@ -1,18 +1,48 @@
 import json
+import re
 from config import Config
 from ai_engine.prompts import ROUTE_SYSTEM_PROMPT, HISTORIAN_SYSTEM_PROMPT, contains_suspicious_instruction
 from ai_engine.rag_service import build_context
 
 _client = None
+_active_model = None
 
 
 def _get_client():
-    """Ленивая инициализация клиента OpenAI (только если задан ключ)."""
-    global _client
-    if _client is None and Config.OPENAI_API_KEY:
+    """Ленивая инициализация клиента ИИ-провайдера, выбранного в Config.AI_PROVIDER.
+    Groq (Llama 3), xAI (Grok) и OpenAI используют один и тот же OpenAI SDK —
+    отличаются только api_key, base_url и имя модели."""
+    global _client, _active_model
+
+    provider_cfg = Config.AI_PROVIDERS.get(Config.AI_PROVIDER, {})
+    api_key = provider_cfg.get("api_key")
+
+    if not api_key:
+        return None
+
+    if _client is None:
         from openai import OpenAI
-        _client = OpenAI(api_key=Config.OPENAI_API_KEY)
+        kwargs = {"api_key": api_key}
+        if provider_cfg.get("base_url"):
+            kwargs["base_url"] = provider_cfg["base_url"]
+        _client = OpenAI(**kwargs)
+        _active_model = provider_cfg.get("model")
+
     return _client
+
+
+def _extract_json(raw_text):
+    """Некоторые провайдеры (особенно без строгого JSON-режима) иногда оборачивают
+    JSON в markdown-код или добавляют пояснение до/после. Достаём JSON-объект надёжно."""
+    raw_text = raw_text.strip()
+    raw_text = re.sub(r"^```(json)?|```$", "", raw_text, flags=re.MULTILINE).strip()
+    try:
+        return json.loads(raw_text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        raise
 
 
 RESPONSE_SCHEMA_HINT = (
@@ -34,7 +64,7 @@ def generate_intelligent_route(user_request, user_budget=None, user_days=2, cate
     last_route — последний собранный маршрут (dict), если пользователь просит его изменить
     ("сделай дешевле", "добавь красивые места" и т.п.).
 
-    Если OPENAI_API_KEY не задан — работает в демо-режиме: простые правила вместо LLM,
+    Если для выбранного AI_PROVIDER не задан ключ — работает в демо-режиме: простые правила вместо LLM,
     но с той же логикой "уточнения" предыдущего маршрута.
     """
     if contains_suspicious_instruction(user_request):
@@ -66,16 +96,25 @@ def generate_intelligent_route(user_request, user_budget=None, user_days=2, cate
     messages.append({"role": "user", "content": f"{user_request}\n\n[{context_note}]"})
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            response_format={"type": "json_object"},
-            temperature=0.3,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=_active_model,
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.3,
+            )
+        except Exception:
+            # Не все провайдеры/модели поддерживают response_format=json_object —
+            # повторяем без него и вытаскиваем JSON из текста вручную.
+            response = client.chat.completions.create(
+                model=_active_model,
+                messages=messages,
+                temperature=0.3,
+            )
         raw_output = response.choices[0].message.content
-        return json.loads(raw_output)
+        return _extract_json(raw_output)
     except Exception as e:
-        return {"error": f"Ошибка генерации маршрута: {e}"}
+        return {"error": f"Ошибка генерации маршрута ({Config.AI_PROVIDER}): {e}"}
 
 
 def _mock_route(places, user_days, user_budget, user_request, last_route):
@@ -108,7 +147,7 @@ def _mock_route(places, user_days, user_budget, user_request, last_route):
             "reply": reply,
         }
 
-    demo_note = "Демо-режим (без OPENAI_API_KEY): маршрут собран по простым правилам, не через LLM."
+    demo_note = f"Демо-режим (нет ключа для {Config.AI_PROVIDER}): маршрут собран по простым правилам, не через LLM."
 
     # --- Уточнение существующего маршрута ---
     if last_route and last_route.get("days"):
@@ -154,7 +193,7 @@ def ask_historian(place: dict, question: str, mode: str = "для туриста
     client = _get_client()
 
     if client is None:
-        return {"answer": place.get("history", "История этого места пока не добавлена."), "note": "Демо-режим без OPENAI_API_KEY."}
+        return {"answer": place.get("history", "История этого места пока не добавлена."), "note": f"Демо-режим (нет ключа для {Config.AI_PROVIDER})."}
 
     system_instruction = HISTORIAN_SYSTEM_PROMPT.format(
         place_json=json.dumps(place, ensure_ascii=False), mode=mode
@@ -162,7 +201,7 @@ def ask_historian(place: dict, question: str, mode: str = "для туриста
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=_active_model,
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": question},
@@ -171,4 +210,4 @@ def ask_historian(place: dict, question: str, mode: str = "для туриста
         )
         return {"answer": response.choices[0].message.content}
     except Exception as e:
-        return {"error": f"Ошибка ИИ-историка: {e}"}
+        return {"error": f"Ошибка ИИ-историка ({Config.AI_PROVIDER}): {e}"}

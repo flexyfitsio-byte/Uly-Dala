@@ -28,7 +28,7 @@
       <a href="{{ url_for('main.chat_page') }}" class="nav-link {% if request.endpoint == 'main.chat_page' %}active{% endif %}">ИИ-гид</a>
       <a href="{{ url_for('main.index') }}#services" class="nav-link {% if request.endpoint in ['services.tours_page','services.hotels_page','services.cars_page','services.flights_page'] %}active{% endif %}">Услуги</a>
       <a href="{{ url_for('main.partner_page') }}" class="nav-link {% if request.endpoint == 'main.partner_page' %}active{% endif %}">Партнёрам</a>
-      <a href="#" id="profileLink" class="nav-link icon-link">Профиль <span id="xpBadge"></span></a>
+      <a href="{{ url_for('main.profile_page') }}" class="nav-link icon-link {% if request.endpoint == 'main.profile_page' %}active{% endif %}">Профиль <span id="xpBadge"></span></a>
     </nav>
   </div>
 </header>

@@ -7,6 +7,7 @@
 import json
 import os
 import threading
+from datetime import datetime, timezone
 from config import Config
 
 _lock = threading.Lock()
@@ -40,6 +41,11 @@ def get_place_by_id(place_id):
     return None
 
 
+def _place_categories(place):
+    """Место может относиться к нескольким категориям (например nature + adventure)."""
+    return place.get("categories") or [place.get("category")]
+
+
 def get_verified_places(max_budget=None, category=None, region=None):
     """Возвращает места, отфильтрованные по бюджету/категории/региону.
     Используется ИИ-гидом — модель не может "придумывать" места вне этого списка."""
@@ -48,7 +54,7 @@ def get_verified_places(max_budget=None, category=None, region=None):
     if max_budget is not None:
         places = [p for p in places if p["avg_cost_per_day"] <= max_budget]
     if category:
-        places = [p for p in places if p["category"] == category]
+        places = [p for p in places if category in _place_categories(p)]
     if region:
         places = [p for p in places if p["region"] == region]
 
@@ -137,10 +143,16 @@ def add_xp(user_id, amount, reason=""):
 def mark_place_visited(user_id, place_id):
     users = _get_users()
     user = users.get(user_id, dict(DEFAULT_USER))
-    is_new_visit = place_id not in user["visited_places"]
+    user.setdefault("visited_places", [])
+
+    visited_ids = [v["place_id"] if isinstance(v, dict) else v for v in user["visited_places"]]
+    is_new_visit = place_id not in visited_ids
 
     if is_new_visit:
-        user["visited_places"].append(place_id)
+        user["visited_places"].append({
+            "place_id": place_id,
+            "visited_at": datetime.now(timezone.utc).isoformat(),
+        })
         place = get_place_by_id(place_id)
         if place:
             region = place["region"]
@@ -149,6 +161,25 @@ def mark_place_visited(user_id, place_id):
     users[user_id] = user
     _write_json(Config.USERS_FILE, users)
     return user, is_new_visit
+
+
+def get_visit_history(user_id):
+    """Список посещённых мест с датой и деталями места — для страницы профиля."""
+    user = get_user(user_id)
+    history = []
+    for v in user.get("visited_places", []):
+        place_id = v["place_id"] if isinstance(v, dict) else v
+        visited_at = v.get("visited_at") if isinstance(v, dict) else None
+        place = get_place_by_id(place_id)
+        if place:
+            history.append({
+                "place_id": place_id,
+                "name": place["name"],
+                "region": place["region"],
+                "visited_at": visited_at,
+            })
+    history.sort(key=lambda x: x["visited_at"] or "", reverse=True)
+    return history
 
 
 def answer_quiz(user_id, place_id, selected_index):
@@ -175,3 +206,45 @@ def answer_quiz(user_id, place_id, selected_index):
     _write_json(Config.USERS_FILE, users)
 
     return {"correct": is_correct, "xp_gained": xp_gained, "already_answered": already_answered}
+
+
+# ---------- Отзывы ----------
+
+REVIEWS_FILE_NAME = "reviews.json"
+
+
+def _reviews_path():
+    return os.path.join(Config.DATA_DIR, REVIEWS_FILE_NAME)
+
+
+def get_reviews_for_place(place_id):
+    reviews = _read_json(_reviews_path(), [])
+    place_reviews = [r for r in reviews if r["place_id"] == int(place_id)]
+    place_reviews.sort(key=lambda r: r["created_at"], reverse=True)
+    return place_reviews
+
+
+def get_place_rating_summary(place_id):
+    reviews = get_reviews_for_place(place_id)
+    if not reviews:
+        return {"average": None, "count": 0}
+    avg = sum(r["rating"] for r in reviews) / len(reviews)
+    return {"average": round(avg, 1), "count": len(reviews)}
+
+
+def add_review(place_id, user_id, author_name, rating, text):
+    reviews = _read_json(_reviews_path(), [])
+
+    review = {
+        "id": len(reviews) + 1,
+        "place_id": int(place_id),
+        "user_id": user_id,
+        "author_name": author_name or "Гость",
+        "rating": max(1, min(5, int(rating))),
+        "text": (text or "").strip()[:800],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    reviews.append(review)
+    _write_json(_reviews_path(), reviews)
+    return review
+

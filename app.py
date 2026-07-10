@@ -7,6 +7,7 @@ from routes.ai_routes import ai_bp
 from routes.gamification import gamification_bp
 from routes.partner_api import partner_bp
 from routes.services import services_bp
+from routes.reviews import reviews_bp
 
 
 def create_app():
@@ -19,6 +20,7 @@ def create_app():
     app.register_blueprint(gamification_bp)
     app.register_blueprint(partner_bp)
     app.register_blueprint(services_bp)
+    app.register_blueprint(reviews_bp)
 
     return app
 

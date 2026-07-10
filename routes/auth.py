@@ -31,6 +31,10 @@ def register():
     data = request.form if request.form else request.get_json(force=True, silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
+    name = (data.get("name") or "").strip()
+    # Чекбокс "Хочу стать партнёром" на регистрации — необязательный.
+    # Пользователь также может отправить эту заявку позже, со страницы профиля.
+    wants_partner = str(data.get("wants_partner") or "").lower() in ("1", "true", "on", "yes")
 
     if not email or not password:
         return jsonify({"error": "Укажите email и пароль"}), 400
@@ -42,13 +46,17 @@ def register():
     user_id = str(uuid.uuid4())
     users[email] = {
         "user_id": user_id,
+        "name": name,
         "password_hash": generate_password_hash(password),
+        # partner_status: none -> pending (заявка отправлена, ждёт модерации) -> approved
+        "partner_status": "pending" if wants_partner else "none",
     }
     _write_auth_users(users)
 
     session["user_id"] = user_id
     session["email"] = email
-    return redirect(url_for("main.index")) if request.form else jsonify({"user_id": user_id})
+    session["name"] = name
+    return redirect(url_for("main.profile_page")) if request.form else jsonify({"user_id": user_id})
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -68,7 +76,8 @@ def login():
 
     session["user_id"] = user["user_id"]
     session["email"] = email
-    return redirect(url_for("main.index")) if request.form else jsonify({"user_id": user["user_id"]})
+    session["name"] = user.get("name", "")
+    return redirect(url_for("main.profile_page")) if request.form else jsonify({"user_id": user["user_id"]})
 
 
 @auth_bp.route("/logout")
@@ -82,4 +91,38 @@ def current_session():
     return jsonify({
         "logged_in": "user_id" in session,
         "email": session.get("email"),
+        "name": session.get("name"),
     })
+
+
+@auth_bp.route("/api/partner/become", methods=["POST"])
+def become_partner():
+    """Действующий пользователь запрашивает партнёрский статус из профиля
+    (не только на этапе регистрации)."""
+    email = session.get("email")
+    if not email:
+        return jsonify({"error": "Нужно войти в аккаунт, чтобы подать заявку на партнёрство"}), 401
+
+    users = _read_auth_users()
+    user = users.get(email)
+    if not user:
+        return jsonify({"error": "Пользователь не найден"}), 404
+
+    if user.get("partner_status") == "approved":
+        return jsonify({"status": "approved", "message": "Вы уже партнёр Uly Dala"})
+
+    user["partner_status"] = "pending"
+    users[email] = user
+    _write_auth_users(users)
+    return jsonify({"status": "pending", "message": "Заявка на партнёрство отправлена — мы свяжемся с вами по email."})
+
+
+@auth_bp.route("/api/partner/status")
+def partner_status():
+    email = session.get("email")
+    if not email:
+        return jsonify({"partner_status": "none", "logged_in": False})
+
+    users = _read_auth_users()
+    user = users.get(email, {})
+    return jsonify({"partner_status": user.get("partner_status", "none"), "logged_in": True})

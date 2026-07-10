@@ -1,6 +1,6 @@
 import uuid
 from flask import Blueprint, request, jsonify, session
-from database.db_manager import get_user, add_xp, mark_place_visited, answer_quiz
+from database.db_manager import get_user, add_xp, mark_place_visited, answer_quiz, get_visit_history
 
 gamification_bp = Blueprint("gamification", __name__)
 
@@ -15,7 +15,19 @@ def _current_user_id():
 @gamification_bp.route("/api/profile")
 def api_profile():
     user_id = _current_user_id()
-    return jsonify(get_user(user_id))
+    user = get_user(user_id)
+    return jsonify({
+        **user,
+        "email": session.get("email"),
+        "name": session.get("name"),
+        "logged_in": "email" in session,
+    })
+
+
+@gamification_bp.route("/api/profile/history")
+def api_profile_history():
+    user_id = _current_user_id()
+    return jsonify(get_visit_history(user_id))
 
 
 @gamification_bp.route("/api/visit/<int:place_id>", methods=["POST"])

@@ -24,6 +24,9 @@
         <div class="chip active" data-category="">Все места</div>
         <div class="chip" data-category="nature">Природа</div>
         <div class="chip" data-category="history">История</div>
+        <div class="chip" data-category="adventure">Экстрим</div>
+        <div class="chip" data-category="family">Семейный отдых</div>
+        <div class="chip" data-category="culture">Культура</div>
       </div>
     </div>
 
@@ -162,7 +165,7 @@
 
 {% block extra_scripts %}
 <script>
-  const categoryEmoji = { nature: "🏔", history: "🏛" };
+  const categoryEmoji = { nature: "🏔", history: "🏛", adventure: "🧗", family: "👨‍👩‍👧", culture: "🎭" };
   let placesCache = [];
 
   async function loadPlaces(category) {
@@ -234,7 +237,21 @@
       </div>
       <div id="visitFeedback" class="text-muted" style="margin-top:8px; font-size:0.85rem;"></div>
       ${quizHtml}
+      <div style="margin-top:24px; border-top:1px solid rgba(201,161,90,0.2); padding-top:16px;">
+        <div style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:10px;">Отзывы</div>
+        <div id="reviewsSummary" class="rating-summary">Загрузка отзывов...</div>
+        <div id="reviewsList"></div>
+        <div style="margin-top:14px;">
+          <div class="star-picker" id="starPicker">
+            ${[1,2,3,4,5].map(n => `<span data-val="${n}" onclick="setReviewRating(${n})">★</span>`).join('')}
+          </div>
+          <textarea id="reviewText" rows="2" placeholder="Поделитесь впечатлениями об этом месте..." style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(201,161,90,0.3); background:rgba(0,0,0,0.15); color:var(--cream); font-family:'Manrope', sans-serif; resize:vertical;"></textarea>
+          <button class="btn btn-outline" style="margin-top:8px;" onclick="submitReview(${place.id})">Оставить отзыв</button>
+          <div id="reviewFeedback" class="text-muted" style="margin-top:6px; font-size:0.82rem;"></div>
+        </div>
+      </div>
     `;
+    loadReviews(place.id);
   }
 
   function closeModal() {
@@ -296,6 +313,65 @@
   }
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  let selectedRating = 0;
+  function setReviewRating(n) {
+    selectedRating = n;
+    document.querySelectorAll('#starPicker span').forEach(s => {
+      s.classList.toggle('active', Number(s.dataset.val) <= n);
+    });
+  }
+
+  async function loadReviews(placeId) {
+    const res = await fetch(`/api/places/${placeId}/reviews`);
+    const data = await res.json();
+    const summaryEl = document.getElementById('reviewsSummary');
+    const listEl = document.getElementById('reviewsList');
+    if (!summaryEl || !listEl) return;
+
+    summaryEl.textContent = data.summary.count
+      ? `★ ${data.summary.average} · ${data.summary.count} ${data.summary.count === 1 ? 'отзыв' : 'отзывов'}`
+      : 'Отзывов пока нет — будьте первым.';
+
+    listEl.innerHTML = data.reviews.map(r => `
+      <div class="review-item">
+        <div class="review-head">
+          <span class="review-author">${r.author_name}</span>
+          <span class="review-date">${new Date(r.created_at).toLocaleDateString('ru-RU')}</span>
+        </div>
+        <div class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+        <div class="review-text">${r.text}</div>
+      </div>
+    `).join('');
+  }
+
+  async function submitReview(placeId) {
+    const text = document.getElementById('reviewText').value.trim();
+    const feedback = document.getElementById('reviewFeedback');
+
+    if (!selectedRating) { feedback.textContent = 'Поставьте оценку от 1 до 5 звёзд.'; feedback.style.color = 'var(--danger)'; return; }
+    if (!text) { feedback.textContent = 'Напишите короткий отзыв.'; feedback.style.color = 'var(--danger)'; return; }
+
+    const res = await fetch(`/api/places/${placeId}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: selectedRating, text })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      feedback.textContent = data.error || 'Не удалось отправить отзыв.';
+      feedback.style.color = 'var(--danger)';
+      return;
+    }
+
+    feedback.textContent = 'Спасибо за отзыв!';
+    feedback.style.color = 'var(--gold-soft)';
+    document.getElementById('reviewText').value = '';
+    selectedRating = 0;
+    document.querySelectorAll('#starPicker span').forEach(s => s.classList.remove('active'));
+    loadReviews(placeId);
+  }
 
   loadPlaces('');
   loadProfile();

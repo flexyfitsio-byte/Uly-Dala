@@ -29,6 +29,11 @@ def partner_page():
     return render_template("partner.html")
 
 
+@main_bp.route("/profile")
+def profile_page():
+    return render_template("profile.html")
+
+
 @main_bp.route("/api/places")
 def api_places():
     category = request.args.get("category")
@@ -36,7 +41,7 @@ def api_places():
     places = get_all_places()
 
     if category:
-        places = [p for p in places if p["category"] == category]
+        places = [p for p in places if category in (p.get("categories") or [p.get("category")])]
     if region:
         places = [p for p in places if p["region"] == region]
 
