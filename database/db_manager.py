@@ -107,34 +107,41 @@ def add_xp(user_id, amount, reason=""):
 def mark_place_visited(user_id, place_id):
     users = _get_users()
     user = users.get(user_id, dict(DEFAULT_USER))
-    if place_id not in user["visited_places"]:
+    is_new_visit = place_id not in user["visited_places"]
+
+    if is_new_visit:
         user["visited_places"].append(place_id)
         place = get_place_by_id(place_id)
         if place:
             region = place["region"]
             user["regions_progress"][region] = user["regions_progress"].get(region, 0) + 1
+
     users[user_id] = user
     _write_json(Config.USERS_FILE, users)
-    return user
+    return user, is_new_visit
 
 
 def answer_quiz(user_id, place_id, selected_index):
     place = get_place_by_id(place_id)
     if not place or "quiz" not in place:
-        return {"correct": False, "xp_gained": 0}
+        return {"correct": False, "xp_gained": 0, "already_answered": False}
 
     is_correct = selected_index == place["quiz"]["correct"]
-    xp_gained = 50 if is_correct else 0
 
     users = _get_users()
     user = users.get(user_id, dict(DEFAULT_USER))
     key = f"{place_id}"
-    if key not in user["quiz_answered"]:
+    already_answered = key in user["quiz_answered"]
+    xp_gained = 0
+
+    if not already_answered:
         user["quiz_answered"].append(key)
-        if xp_gained:
+        if is_correct:
+            xp_gained = 50
             user["xp"] += xp_gained
             user["level"] = _calc_level(user["xp"])
+
     users[user_id] = user
     _write_json(Config.USERS_FILE, users)
 
-    return {"correct": is_correct, "xp_gained": xp_gained}
+    return {"correct": is_correct, "xp_gained": xp_gained, "already_answered": already_answered}

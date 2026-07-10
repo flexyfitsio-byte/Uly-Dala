@@ -1,8 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from ai_engine.openai_client import generate_intelligent_route, ask_historian
 from database.db_manager import get_place_by_id
 
 ai_bp = Blueprint("ai", __name__)
+
+MAX_HISTORY_TURNS = 8  # ограничиваем размер сессии
 
 
 @ai_bp.route("/api/ai/route", methods=["POST"])
@@ -23,8 +25,33 @@ def api_generate_route():
     except (TypeError, ValueError):
         return jsonify({"error": "Бюджет и количество дней должны быть числами"}), 400
 
-    result = generate_intelligent_route(user_request, user_budget=budget, user_days=days, category=category)
+    history = session.get("ai_chat_history", [])
+    last_route = session.get("ai_last_route")
+
+    result = generate_intelligent_route(
+        user_request,
+        user_budget=budget,
+        user_days=days,
+        category=category,
+        history=history,
+        last_route=last_route,
+    )
+
+    if "error" not in result:
+        history.append({"role": "user", "content": user_request})
+        history.append({"role": "assistant", "content": result.get("reply", "")})
+        session["ai_chat_history"] = history[-MAX_HISTORY_TURNS:]
+        session["ai_last_route"] = result
+
     return jsonify(result)
+
+
+@ai_bp.route("/api/ai/reset", methods=["POST"])
+def api_reset_conversation():
+    """Начать новый диалог с ИИ-гидом (сбросить память маршрута)."""
+    session.pop("ai_chat_history", None)
+    session.pop("ai_last_route", None)
+    return jsonify({"status": "ok"})
 
 
 @ai_bp.route("/api/ai/historian/<int:place_id>", methods=["POST"])

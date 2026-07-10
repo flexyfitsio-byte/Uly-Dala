@@ -21,9 +21,12 @@ def api_profile():
 @gamification_bp.route("/api/visit/<int:place_id>", methods=["POST"])
 def api_visit(place_id):
     user_id = _current_user_id()
-    user = mark_place_visited(user_id, place_id)
-    user = add_xp(user_id, 100, reason="visit")
-    return jsonify(user)
+    user, is_new_visit = mark_place_visited(user_id, place_id)
+
+    if is_new_visit:
+        user = add_xp(user_id, 100, reason="visit")
+
+    return jsonify({**user, "xp_gained": 100 if is_new_visit else 0, "already_visited": not is_new_visit})
 
 
 @gamification_bp.route("/api/quiz/<int:place_id>", methods=["POST"])

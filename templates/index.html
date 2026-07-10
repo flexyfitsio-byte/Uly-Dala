@@ -9,7 +9,7 @@
       <h1>Путешествуй по <span>Великой степи</span> осмысленно</h1>
       <p class="lead">
         Uly Dala подбирает маршрут под твой бюджет, рассказывает историю каждого места
-        и награждает опытом за каждое открытие — от Бурабая до Байконура.
+        и награждает опытом за каждое настоящее открытие — от Бурабая до Байконура.
       </p>
       <div class="hero-actions">
         <a href="{{ url_for('main.chat_page') }}" class="btn btn-gold">Спросить ИИ-гида</a>
@@ -47,7 +47,7 @@
   <div class="section-head">
     <div>
       <h2>Места для открытия</h2>
-      <div class="sub">Проверенные локации — данные, на которые опирается ИИ-гид</div>
+      <div class="sub">Открой карточку места, узнай историю и пройди викторину — так копится настоящий опыт</div>
     </div>
     <div class="badge-xp" id="heroXpBadge">— XP</div>
   </div>
@@ -56,11 +56,73 @@
     <div class="text-muted">Загружаем места...</div>
   </div>
 </section>
+
+<!-- Модальное окно карточки места -->
+<div id="placeModalOverlay" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+  <div class="modal-card ornate-frame" id="placeModalCard">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="placeModalBody"><div class="text-muted">Загрузка...</div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 11, 20, 0.72);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal-card {
+  max-width: 520px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+}
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: var(--cream);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.modal-close:hover { background: rgba(255,255,255,0.18); }
+.quiz-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(201,161,90,0.3);
+  background: rgba(0,0,0,0.15);
+  color: var(--cream);
+  cursor: pointer;
+  font-family: 'Manrope', sans-serif;
+}
+.quiz-option:hover { border-color: var(--gold); }
+.quiz-option.correct { background: rgba(102,187,106,0.25); border-color: #66BB6A; }
+.quiz-option.wrong { background: rgba(217,119,87,0.25); border-color: var(--danger); }
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
   const categoryEmoji = { nature: "🏔", history: "🏛" };
+  let placesCache = [];
 
   async function loadPlaces(category) {
     const grid = document.getElementById('placeGrid');
@@ -68,6 +130,7 @@
     const url = category ? `/api/places?category=${category}` : '/api/places';
     const res = await fetch(url);
     const places = await res.json();
+    placesCache = places;
 
     if (!places.length) {
       grid.innerHTML = '<div class="text-muted">Мест не найдено.</div>';
@@ -75,7 +138,7 @@
     }
 
     grid.innerHTML = places.map(p => `
-      <div class="place-card" onclick="visitPlace(${p.id})">
+      <div class="place-card" onclick="openPlaceModal(${p.id})">
         <div class="place-card-media">${categoryEmoji[p.category] || '📍'}</div>
         <div class="place-card-body">
           <div class="place-card-region">${p.region}</div>
@@ -90,16 +153,92 @@
     `).join('');
   }
 
-  async function visitPlace(placeId) {
-    const res = await fetch(`/api/visit/${placeId}`, { method: 'POST' });
-    const user = await res.json();
-    updateXpBadges(user);
-  }
-
   function updateXpBadges(user) {
     const text = `${user.xp} XP · ${user.level}`;
     document.getElementById('heroXpBadge').textContent = text;
-    document.getElementById('xpBadge').textContent = `(${user.xp})`;
+    const nav = document.getElementById('xpBadge');
+    if (nav) nav.textContent = `(${user.xp})`;
+  }
+
+  async function openPlaceModal(placeId) {
+    const overlay = document.getElementById('placeModalOverlay');
+    const body = document.getElementById('placeModalBody');
+    overlay.classList.add('open');
+    body.innerHTML = '<div class="text-muted">Загрузка...</div>';
+
+    const res = await fetch(`/api/places/${placeId}`);
+    const place = await res.json();
+
+    let quizHtml = '';
+    if (place.quiz) {
+      quizHtml = `
+        <div style="margin-top:20px; border-top:1px solid rgba(201,161,90,0.2); padding-top:16px;">
+          <div style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:10px;">Мини-викторина · +50 XP</div>
+          <div style="margin-bottom:10px;">${place.quiz.question}</div>
+          <div id="quizOptions">
+            ${place.quiz.options.map((opt, i) => `<button class="quiz-option" onclick="answerQuiz(${place.id}, ${i}, this)">${opt}</button>`).join('')}
+          </div>
+          <div id="quizFeedback" class="text-muted" style="margin-top:8px; font-size:0.85rem;"></div>
+        </div>`;
+    }
+
+    body.innerHTML = `
+      <div class="place-card-region">${place.region}</div>
+      <h2 style="text-transform:none; letter-spacing:0; font-size:1.4rem; margin-bottom:10px;">${place.name}</h2>
+      <p class="text-muted" style="line-height:1.6;">${place.description}</p>
+      <p class="text-muted" style="line-height:1.6; font-size:0.9rem;">${place.history || ''}</p>
+      <div class="flex" style="justify-content:space-between; align-items:center; margin-top:16px;">
+        <span class="price-tag">${place.avg_cost_per_day.toLocaleString('ru-RU')} ₸/день</span>
+        <button class="btn btn-gold" id="visitBtn" onclick="markVisited(${place.id})">Отметить как посещено · +100 XP</button>
+      </div>
+      <div id="visitFeedback" class="text-muted" style="margin-top:8px; font-size:0.85rem;"></div>
+      ${quizHtml}
+    `;
+  }
+
+  function closeModal() {
+    document.getElementById('placeModalOverlay').classList.remove('open');
+  }
+
+  async function markVisited(placeId) {
+    const res = await fetch(`/api/visit/${placeId}`, { method: 'POST' });
+    const data = await res.json();
+    updateXpBadges(data);
+
+    const feedback = document.getElementById('visitFeedback');
+    if (data.already_visited) {
+      feedback.textContent = 'Это место уже отмечено как посещённое ранее — повторный XP не начисляется.';
+    } else {
+      feedback.textContent = `+${data.xp_gained} XP получено!`;
+      feedback.style.color = 'var(--gold-soft)';
+    }
+  }
+
+  async function answerQuiz(placeId, selectedIndex, btnEl) {
+    const options = document.querySelectorAll('#quizOptions .quiz-option');
+    options.forEach(o => o.disabled = true);
+
+    const res = await fetch(`/api/quiz/${placeId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selected_index: selectedIndex })
+    });
+    const data = await res.json();
+
+    btnEl.classList.add(data.correct ? 'correct' : 'wrong');
+
+    const feedback = document.getElementById('quizFeedback');
+    if (data.already_answered) {
+      feedback.textContent = 'На этот вопрос уже отвечали раньше — повторный XP не начисляется.';
+    } else {
+      feedback.textContent = data.correct
+        ? `Верно! +${data.xp_gained} XP`
+        : 'Неверно — попытка засчитана, при следующем открытии карточки повторно ответить будет нельзя.';
+    }
+
+    if (data.correct) {
+      loadProfile();
+    }
   }
 
   document.getElementById('categoryChips').addEventListener('click', (e) => {
@@ -114,6 +253,8 @@
     const user = await res.json();
     updateXpBadges(user);
   }
+
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
   loadPlaces('');
   loadProfile();

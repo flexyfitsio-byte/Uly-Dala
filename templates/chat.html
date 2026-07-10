@@ -6,91 +6,157 @@
   <div class="section-head">
     <div>
       <h2>ИИ-гид</h2>
-      <div class="sub">Опиши, куда хочешь поехать — маршрут соберётся только из проверенных мест</div>
+      <div class="sub">Опиши, куда хочешь поехать. Можно уточнять: «сделай дешевле», «добавь красивые места», «сократи маршрут»</div>
+    </div>
+    <button class="btn btn-outline" onclick="resetChat()">Новый диалог</button>
+  </div>
+
+  <div class="flex gap-12" style="flex-wrap: wrap; margin-bottom: 18px;">
+    <div class="form-field" style="flex:1; min-width:140px; margin-bottom:0;">
+      <label>Бюджет (₸/день)</label>
+      <input type="number" id="budgetInput" placeholder="25000">
+    </div>
+    <div class="form-field" style="flex:1; min-width:140px; margin-bottom:0;">
+      <label>Дней</label>
+      <input type="number" id="daysInput" value="2" min="1" max="14">
+    </div>
+    <div class="form-field" style="flex:1; min-width:160px; margin-bottom:0;">
+      <label>Категория</label>
+      <select id="categoryInput">
+        <option value="">Любая</option>
+        <option value="nature">Природа</option>
+        <option value="history">История</option>
+      </select>
     </div>
   </div>
 
-  <div class="ornate-frame" style="max-width: 720px;">
-    <div class="form-field">
-      <label>Куда и что хочется</label>
-      <textarea id="userMessage" rows="3" placeholder="Например: хочу на выходные недалеко от Астаны, люблю природу"></textarea>
-    </div>
-    <div class="flex gap-12" style="flex-wrap: wrap;">
-      <div class="form-field" style="flex:1; min-width:140px;">
-        <label>Бюджет (₸/день)</label>
-        <input type="number" id="budgetInput" placeholder="25000">
-      </div>
-      <div class="form-field" style="flex:1; min-width:140px;">
-        <label>Количество дней</label>
-        <input type="number" id="daysInput" value="2" min="1" max="14">
-      </div>
-      <div class="form-field" style="flex:1; min-width:160px;">
-        <label>Категория</label>
-        <select id="categoryInput">
-          <option value="">Любая</option>
-          <option value="nature">Природа</option>
-          <option value="history">История</option>
-        </select>
-      </div>
-    </div>
-    <button class="btn btn-gold" onclick="generateRoute()">Составить маршрут</button>
-  </div>
+  <div id="chatThread" class="chat-thread"></div>
 
-  <div id="routeResult" class="mt-24"></div>
+  <div class="chat-input-row">
+    <input type="text" id="userMessage" placeholder="Например: хочу на выходные недалеко от Астаны, люблю природу"
+           onkeydown="if(event.key==='Enter'){sendMessage();}">
+    <button class="btn btn-gold" onclick="sendMessage()">Отправить</button>
+  </div>
 </section>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 120px;
+  margin-bottom: 16px;
+}
+.chat-bubble {
+  max-width: 640px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+.chat-bubble.user {
+  align-self: flex-end;
+  background: var(--gold);
+  color: var(--ink);
+  border-bottom-right-radius: 4px;
+}
+.chat-bubble.assistant {
+  align-self: flex-start;
+  background: var(--navy-panel);
+  border: 1px solid rgba(201,161,90,0.25);
+  border-bottom-left-radius: 4px;
+}
+.chat-input-row { display: flex; gap: 10px; }
+.chat-input-row input {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(201,161,90,0.35);
+  background: var(--navy-panel);
+  color: var(--cream);
+  font-family: 'Manrope', sans-serif;
+  outline: none;
+}
+.chat-input-row input:focus { border-color: var(--gold); }
+.route-card { margin-top: 8px; }
+.route-day { padding: 10px 0; border-top: 1px solid rgba(201,161,90,0.15); }
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-async function generateRoute() {
-  const message = document.getElementById('userMessage').value.trim();
-  const budget = document.getElementById('budgetInput').value;
-  const days = document.getElementById('daysInput').value;
-  const category = document.getElementById('categoryInput').value;
-  const resultBox = document.getElementById('routeResult');
+const thread = document.getElementById('chatThread');
 
-  if (!message) {
-    resultBox.innerHTML = '<div class="text-muted">Опиши, куда хочешь поехать.</div>';
-    return;
-  }
+function addBubble(role, html) {
+  const bubble = document.createElement('div');
+  bubble.className = `chat-bubble ${role}`;
+  bubble.innerHTML = html;
+  thread.appendChild(bubble);
+  thread.scrollTop = thread.scrollHeight;
+  return bubble;
+}
 
-  resultBox.innerHTML = '<div class="text-muted">ИИ-гид собирает маршрут...</div>';
-
-  const res = await fetch('/api/ai/route', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, budget, days, category })
-  });
-  const data = await res.json();
-
-  if (data.error) {
-    resultBox.innerHTML = `<div class="ornate-frame" style="border-color:#D97757;">${data.error}</div>`;
-    return;
-  }
-
-  let html = `<div class="ornate-frame">
-    <h3 style="color:var(--gold-soft); margin-bottom:6px;">${data.destination_name}</h3>
-    <div class="text-muted" style="margin-bottom:18px;">Итого: ${data.total_estimated_cost.toLocaleString('ru-RU')} ₸</div>`;
+function renderRoute(data) {
+  let html = `<div>${data.reply || 'Вот вариант маршрута:'}</div><div class="route-card">
+    <strong style="color:var(--gold-soft);">${data.destination_name}</strong>
+    <div class="text-muted" style="font-size:0.85rem;">Итого: ${data.total_estimated_cost.toLocaleString('ru-RU')} ₸</div>`;
 
   data.days.forEach(day => {
-    html += `<div style="margin-bottom:16px;">
-      <div class="badge-xp" style="margin-bottom:8px;">День ${day.day_number}</div>`;
+    html += `<div class="route-day"><div class="badge-xp" style="margin-bottom:6px;">День ${day.day_number}</div>`;
     day.activities.forEach(act => {
-      html += `<div style="padding:10px 0; border-top:1px solid rgba(201,161,90,0.15);">
-        <strong style="color:var(--cream);">${act.time} — ${act.location}</strong>
-        <div class="text-muted" style="font-size:0.88rem; margin-top:4px;">${act.description}</div>
-        <div class="price-tag" style="margin-top:4px;">${act.cost.toLocaleString('ru-RU')} ₸</div>
+      html += `<div style="margin-bottom:6px;">
+        <strong>${act.time} — ${act.location}</strong>
+        <div class="text-muted" style="font-size:0.85rem;">${act.description}</div>
+        <div class="price-tag">${act.cost.toLocaleString('ru-RU')} ₸</div>
       </div>`;
     });
     html += `</div>`;
   });
 
-  if (data.note) {
-    html += `<div class="text-muted" style="font-size:0.8rem; margin-top:10px;">${data.note}</div>`;
-  }
-
+  if (data.note) html += `<div class="text-muted" style="font-size:0.78rem; margin-top:8px;">${data.note}</div>`;
   html += `</div>`;
-  resultBox.innerHTML = html;
+  return html;
 }
+
+async function sendMessage() {
+  const input = document.getElementById('userMessage');
+  const message = input.value.trim();
+  if (!message) return;
+
+  addBubble('user', message);
+  input.value = '';
+
+  const thinking = addBubble('assistant', '<span class="text-muted">ИИ-гид думает...</span>');
+
+  const payload = {
+    message,
+    budget: document.getElementById('budgetInput').value,
+    days: document.getElementById('daysInput').value,
+    category: document.getElementById('categoryInput').value,
+  };
+
+  const res = await fetch('/api/ai/route', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  if (data.error) {
+    thinking.innerHTML = data.error;
+    return;
+  }
+  thinking.innerHTML = renderRoute(data);
+}
+
+async function resetChat() {
+  await fetch('/api/ai/reset', { method: 'POST' });
+  thread.innerHTML = '';
+  addBubble('assistant', 'Начали заново — расскажи, куда хочешь поехать.');
+}
+
+addBubble('assistant', 'Привет! Расскажи, куда хочешь поехать — я соберу маршрут, а потом можно попросить сделать его дешевле, длиннее или живописнее.');
 </script>
 {% endblock %}
