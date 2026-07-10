@@ -18,6 +18,7 @@ def _read_auth_users():
 
 
 def _write_auth_users(data):
+    os.makedirs(os.path.dirname(AUTH_FILE), exist_ok=True)
     with open(AUTH_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
