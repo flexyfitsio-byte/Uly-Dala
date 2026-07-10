@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Авиа/ЖД билеты — Uly Dala{% endblock %}
+
+{% block content %}
+<section class="section shell" style="max-width: 560px;">
+  <div class="section-head">
+    <div>
+      <h2>Авиа/ЖД билеты</h2>
+      <div class="sub">
+        Пока без прямого поиска рейсов (нужна интеграция с партнёром вроде Aviasales/Chocotravel) —
+        оставьте заявку, и мы подберём варианты вручную.
+      </div>
+    </div>
+  </div>
+
+  <div class="ornate-frame">
+    <div class="flex gap-12" style="flex-wrap: wrap;">
+      <div class="form-field" style="flex:1; min-width:160px;">
+        <label>Откуда</label>
+        <input type="text" id="flightFrom" placeholder="Астана">
+      </div>
+      <div class="form-field" style="flex:1; min-width:160px;">
+        <label>Куда</label>
+        <input type="text" id="flightTo" placeholder="Алматы">
+      </div>
+    </div>
+    <div class="flex gap-12" style="flex-wrap: wrap;">
+      <div class="form-field" style="flex:1; min-width:160px;">
+        <label>Дата</label>
+        <input type="date" id="flightDate">
+      </div>
+      <div class="form-field" style="flex:1; min-width:160px;">
+        <label>Пассажиров</label>
+        <input type="number" id="flightPassengers" value="1" min="1" max="9">
+      </div>
+    </div>
+    <div class="form-field">
+      <label>Имя</label>
+      <input type="text" id="flightName">
+    </div>
+    <div class="form-field">
+      <label>Телефон</label>
+      <input type="tel" id="flightPhone" placeholder="+7 700 000 00 00">
+    </div>
+    <button class="btn btn-gold" style="width:100%;" onclick="submitFlightRequest()">Отправить заявку</button>
+    <div id="flightFeedback" class="text-muted mt-24" style="font-size: 0.85rem;"></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function submitFlightRequest() {
+  const from = document.getElementById('flightFrom').value.trim();
+  const to = document.getElementById('flightTo').value.trim();
+  const date = document.getElementById('flightDate').value;
+  const passengers = document.getElementById('flightPassengers').value;
+  const name = document.getElementById('flightName').value.trim();
+  const phone = document.getElementById('flightPhone').value.trim();
+  const feedback = document.getElementById('flightFeedback');
+
+  if (!from || !to || !name || !phone) {
+    feedback.textContent = 'Заполните откуда, куда, имя и телефон.';
+    feedback.style.color = 'var(--danger)';
+    return;
+  }
+
+  const payload = {
+    service_type: 'flight',
+    item_name: `${from} → ${to}`,
+    contact_name: name,
+    contact_phone: phone,
+    notes: `Дата: ${date || 'не указана'}. Пассажиров: ${passengers}.`,
+  };
+
+  const res = await fetch('/api/booking-request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  feedback.textContent = data.message || data.error;
+  feedback.style.color = res.ok ? 'var(--gold-soft)' : 'var(--danger)';
+}
+</script>
+{% endblock %}

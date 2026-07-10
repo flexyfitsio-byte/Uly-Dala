@@ -20,4 +20,8 @@ class Config:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_DIR = os.environ.get("DATA_DIR", os.path.join(BASE_DIR, "data"))
     PLACES_FILE = os.path.join(BASE_DIR, "data", "places.json")  # статичные данные — всегда из кода
+    TOURS_FILE = os.path.join(BASE_DIR, "data", "tours.json")
+    HOTELS_FILE = os.path.join(BASE_DIR, "data", "hotels.json")
+    CARS_FILE = os.path.join(BASE_DIR, "data", "cars.json")
     USERS_FILE = os.path.join(DATA_DIR, "users.json")
+    BOOKING_REQUESTS_FILE = os.path.join(DATA_DIR, "booking_requests.json")

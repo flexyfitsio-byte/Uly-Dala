@@ -55,6 +55,36 @@ def get_verified_places(max_budget=None, category=None, region=None):
     return places
 
 
+# ---------- Туры / Отели / Авто (каталоги-витрины) ----------
+# Пока без реальной интеграции с бронированием — см. save_booking_request().
+
+def get_all_tours():
+    return _read_json(Config.TOURS_FILE, [])
+
+
+def get_all_hotels():
+    return _read_json(Config.HOTELS_FILE, [])
+
+
+def get_all_cars():
+    return _read_json(Config.CARS_FILE, [])
+
+
+def save_booking_request(payload):
+    """
+    Сохраняет заявку на бронирование (тур/отель/авто/билеты) — ДЕМО-РЕЖИМ.
+    Реального бронирования и оплаты нет: это лид для менеджера, как форма
+    "перезвоните мне". Полноценное бронирование потребует партнёрского API
+    (Aviasales/Kiwi, Booking.com Affiliate, локальные агрегаторы вроде
+    Chocotravel/Aviata) — их нужно подключать отдельно, когда появятся ключи.
+    """
+    requests_list = _read_json(Config.BOOKING_REQUESTS_FILE, [])
+    payload["id"] = len(requests_list) + 1
+    requests_list.append(payload)
+    _write_json(Config.BOOKING_REQUESTS_FILE, requests_list)
+    return payload
+
+
 # ---------- Пользователи (геймификация) ----------
 
 DEFAULT_USER = {

@@ -43,6 +43,47 @@
   </div>
 </section>
 
+<section class="section shell" id="services">
+  <div class="section-head">
+    <div>
+      <h2>Все сервисы Uly Dala</h2>
+      <div class="sub">Часть уже работает по-настоящему, часть — заявки на бронирование (реальные API подключим отдельно)</div>
+    </div>
+  </div>
+  <div class="service-grid">
+    <a href="{{ url_for('main.chat_page') }}" class="service-tile">
+      <span class="emoji">🧭</span>
+      <span class="label">Собственный маршрут</span>
+      <span class="status-pill live">Работает — ИИ-гид</span>
+    </a>
+    <a href="#places" class="service-tile">
+      <span class="emoji">📜</span>
+      <span class="label">История и культура</span>
+      <span class="status-pill live">Работает</span>
+    </a>
+    <a href="{{ url_for('services.tours_page') }}" class="service-tile">
+      <span class="emoji">🗺️</span>
+      <span class="label">Туры</span>
+      <span class="status-pill">Заявка на бронь</span>
+    </a>
+    <a href="{{ url_for('services.hotels_page') }}" class="service-tile">
+      <span class="emoji">🏨</span>
+      <span class="label">Отели</span>
+      <span class="status-pill">Заявка на бронь</span>
+    </a>
+    <a href="{{ url_for('services.cars_page') }}" class="service-tile">
+      <span class="emoji">🚗</span>
+      <span class="label">Аренда авто</span>
+      <span class="status-pill">Заявка на бронь</span>
+    </a>
+    <a href="{{ url_for('services.flights_page') }}" class="service-tile">
+      <span class="emoji">✈️</span>
+      <span class="label">Авиа/ЖД билеты</span>
+      <span class="status-pill">Заявка на подбор</span>
+    </a>
+  </div>
+</section>
+
 <section class="section shell" id="places">
   <div class="section-head">
     <div>

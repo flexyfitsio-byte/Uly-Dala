@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Туры — Uly Dala{% endblock %}
+
+{% block content %}
+<section class="section shell">
+  <div class="section-head">
+    <div>
+      <h2>Туры по Казахстану</h2>
+      <div class="sub">Готовые программы с трансфером и проживанием. Заявка — менеджер свяжется для подтверждения.</div>
+    </div>
+  </div>
+  <div class="place-grid" id="tourGrid">
+    <div class="text-muted">Загружаем туры...</div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function loadTours() {
+  const grid = document.getElementById('tourGrid');
+  const res = await fetch('/api/tours');
+  const tours = await res.json();
+
+  grid.innerHTML = tours.map(t => `
+    <div class="place-card">
+      <div class="place-card-media">🗺️</div>
+      <div class="place-card-body">
+        <div class="place-card-region">${t.region} · ${t.days} дн.</div>
+        <h3>${t.name}</h3>
+        <div class="place-card-desc">${t.description}</div>
+        <div class="place-card-footer">
+          <span class="price-tag">от ${t.price.toLocaleString('ru-RU')} ₸</span>
+          <button class="btn btn-gold" style="padding:8px 16px; font-size:0.8rem;" onclick='openBookingModal("tour", ${JSON.stringify(t.name)})'>Забронировать</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+loadTours();
+</script>
+{% endblock %}

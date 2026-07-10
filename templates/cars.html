@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Аренда авто — Uly Dala{% endblock %}
+
+{% block content %}
+<section class="section shell">
+  <div class="section-head">
+    <div>
+      <h2>Аренда авто</h2>
+      <div class="sub">Для самостоятельных маршрутов по стране — от города до внедорожника для степи.</div>
+    </div>
+  </div>
+  <div class="place-grid" id="carGrid">
+    <div class="text-muted">Загружаем автомобили...</div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function loadCars() {
+  const grid = document.getElementById('carGrid');
+  const res = await fetch('/api/cars');
+  const cars = await res.json();
+
+  grid.innerHTML = cars.map(c => `
+    <div class="place-card">
+      <div class="place-card-media">🚗</div>
+      <div class="place-card-body">
+        <div class="place-card-region">${c.category}</div>
+        <h3>${c.name}</h3>
+        <div class="place-card-desc">${c.description}</div>
+        <div class="place-card-footer">
+          <span class="price-tag">${c.price_per_day.toLocaleString('ru-RU')} ₸/день</span>
+          <button class="btn btn-gold" style="padding:8px 16px; font-size:0.8rem;" onclick='openBookingModal("car", ${JSON.stringify(c.name)})'>Забронировать</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+loadCars();
+</script>
+{% endblock %}

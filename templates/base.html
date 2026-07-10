@@ -26,6 +26,7 @@
     <nav class="nav-links">
       <a href="{{ url_for('main.index') }}" class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}">Карта</a>
       <a href="{{ url_for('main.chat_page') }}" class="nav-link {% if request.endpoint == 'main.chat_page' %}active{% endif %}">ИИ-гид</a>
+      <a href="{{ url_for('main.index') }}#services" class="nav-link {% if request.endpoint in ['services.tours_page','services.hotels_page','services.cars_page','services.flights_page'] %}active{% endif %}">Услуги</a>
       <a href="{{ url_for('main.partner_page') }}" class="nav-link {% if request.endpoint == 'main.partner_page' %}active{% endif %}">Партнёрам</a>
       <a href="#" id="profileLink" class="nav-link icon-link">Профиль <span id="xpBadge"></span></a>
     </nav>
@@ -35,6 +36,111 @@
 <main>
 {% block content %}{% endblock %}
 </main>
+
+<!-- Общая модалка заявки на бронирование (туры/отели/авто/билеты) -->
+<div id="bookingModalOverlay" class="modal-overlay" onclick="if(event.target===this) closeBookingModal()">
+  <div class="modal-card ornate-frame" style="max-width: 420px;">
+    <button class="modal-close" onclick="closeBookingModal()">✕</button>
+    <h3 id="bookingModalTitle" style="margin-bottom: 6px;">Заявка на бронирование</h3>
+    <div class="text-muted" style="font-size: 0.82rem; margin-bottom: 18px;">
+      Это не онлайн-оплата — менеджер свяжется с вами для подтверждения деталей.
+    </div>
+    <div class="form-field">
+      <label>Ваше имя</label>
+      <input type="text" id="bookingContactName">
+    </div>
+    <div class="form-field">
+      <label>Телефон</label>
+      <input type="tel" id="bookingContactPhone" placeholder="+7 700 000 00 00">
+    </div>
+    <div class="form-field">
+      <label>Комментарий (даты, кол-во человек и т.п.)</label>
+      <textarea id="bookingNotes" rows="2"></textarea>
+    </div>
+    <button class="btn btn-gold" style="width:100%;" onclick="submitBookingRequest()">Отправить заявку</button>
+    <div id="bookingFeedback" class="text-muted mt-24" style="font-size: 0.85rem;"></div>
+  </div>
+</div>
+
+<style>
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 11, 20, 0.72);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal-card {
+  max-width: 520px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+}
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: var(--cream);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.modal-close:hover { background: rgba(255,255,255,0.18); }
+</style>
+
+<script>
+let currentBooking = { service_type: '', item_name: '' };
+
+function openBookingModal(serviceType, itemName) {
+  currentBooking = { service_type: serviceType, item_name: itemName };
+  document.getElementById('bookingModalTitle').textContent = `Заявка: ${itemName}`;
+  document.getElementById('bookingFeedback').textContent = '';
+  document.getElementById('bookingModalOverlay').classList.add('open');
+}
+
+function closeBookingModal() {
+  document.getElementById('bookingModalOverlay').classList.remove('open');
+}
+
+async function submitBookingRequest() {
+  const payload = {
+    service_type: currentBooking.service_type,
+    item_name: currentBooking.item_name,
+    contact_name: document.getElementById('bookingContactName').value.trim(),
+    contact_phone: document.getElementById('bookingContactPhone').value.trim(),
+    notes: document.getElementById('bookingNotes').value.trim(),
+  };
+
+  const feedback = document.getElementById('bookingFeedback');
+
+  if (!payload.contact_name || !payload.contact_phone) {
+    feedback.textContent = 'Укажите имя и телефон.';
+    feedback.style.color = 'var(--danger)';
+    return;
+  }
+
+  const res = await fetch('/api/booking-request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  feedback.textContent = data.message || data.error;
+  feedback.style.color = res.ok ? 'var(--gold-soft)' : 'var(--danger)';
+}
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeBookingModal(); });
+</script>
 
 <footer class="site-footer">
   <div class="shell flex" style="justify-content:space-between; width:100%;">

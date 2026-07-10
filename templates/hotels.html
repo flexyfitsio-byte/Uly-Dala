@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Отели — Uly Dala{% endblock %}
+
+{% block content %}
+<section class="section shell">
+  <div class="section-head">
+    <div>
+      <h2>Отели и гостевые дома</h2>
+      <div class="sub">Проверенные варианты рядом с популярными местами. Заявка — без предоплаты.</div>
+    </div>
+  </div>
+  <div class="place-grid" id="hotelGrid">
+    <div class="text-muted">Загружаем отели...</div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function loadHotels() {
+  const grid = document.getElementById('hotelGrid');
+  const res = await fetch('/api/hotels');
+  const hotels = await res.json();
+
+  grid.innerHTML = hotels.map(h => `
+    <div class="place-card">
+      <div class="place-card-media">🏨</div>
+      <div class="place-card-body">
+        <div class="place-card-region">${h.region} · ★ ${h.rating}</div>
+        <h3>${h.name}</h3>
+        <div class="place-card-desc">${h.description}</div>
+        <div class="place-card-footer">
+          <span class="price-tag">${h.price_per_night.toLocaleString('ru-RU')} ₸/ночь</span>
+          <button class="btn btn-gold" style="padding:8px 16px; font-size:0.8rem;" onclick='openBookingModal("hotel", ${JSON.stringify(h.name)})'>Забронировать</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+loadHotels();
+</script>
+{% endblock %}

@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "name": "Hyundai Creta",
+    "category": "Кроссовер",
+    "price_per_day": 18000,
+    "description": "Полный привод, подходит для грунтовых дорог к природным достопримечательностям."
+  },
+  {
+    "id": 2,
+    "name": "Toyota Camry",
+    "category": "Седан бизнес-класса",
+    "price_per_day": 25000,
+    "description": "Комфорт для длинных переездов между городами."
+  },
+  {
+    "id": 3,
+    "name": "Chevrolet Cobalt",
+    "category": "Эконом",
+    "price_per_day": 12000,
+    "description": "Бюджетный вариант для города и коротких поездок."
+  },
+  {
+    "id": 4,
+    "name": "Toyota Land Cruiser Prado",
+    "category": "Внедорожник",
+    "price_per_day": 42000,
+    "description": "Для поездок по степи и горным маршрутам, включая Улытау и Мангистау."
+  }
+]
